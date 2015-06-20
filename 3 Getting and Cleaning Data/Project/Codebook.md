@@ -1,5 +1,11 @@
 # Codebook
 
+The data set has been obtained from the larger "Human Activity Recognition
+Using Smartphones Data Set", available at the [UCI Machine Learning
+Repository](https://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones).
+
+## Variables
+
 The first two variables identify the subject and the activity:
 
 - `Subject`: Id that identifies the subject that performed the activity. Its
@@ -8,7 +14,9 @@ The first two variables identify the subject and the activity:
   `WALKING_UPSTAIRS`, `WALKING_DOWNSTAIRS`, `SITTING`, `STANDING` or `LAYING`.
 
 The rest of the variables encode the mean and standard deviation of each
-measurement, each appended by `.Mean` and `StdDev` respectively. They are:
+measurement, each appended by `.Mean` and `StdDev` respectively. They are
+computed as the average for each activity and subject. All variables are
+normalized and bounded within [-1,1]. They are:
 
 - `BodyAcceleration.X.Mean`
 - `BodyAcceleration.Y.Mean`
