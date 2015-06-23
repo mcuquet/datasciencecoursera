@@ -1,0 +1,25 @@
+## Parameters
+inputPath = "./"
+inputFileName = "household_power_consumption.txt"
+outputPath = "./"
+outputFileName = "plot1.png"
+
+## Read data
+data <- read.table(paste(inputPath, inputFileName, sep = ""), header = TRUE,
+                   sep = ";", na.strings = "?",
+                   colClasses = c(rep("character", 2), rep("numeric", 7)),
+                   nrows = 2075260)
+
+## Convert Date and Time to Date/Time classes
+data$Time <- strptime(paste(data$Date, data$Time), format = "%d/%m/%Y %H:%M:%S")
+data$Date <- as.Date(data$Date, format = "%d/%m/%Y")
+
+## Subset data for dates 2007-02-01 and -02
+data <- data[data$Date == "2007-02-01" | data$Date == "2007-02-02", ]
+
+# Plot histogram of Global active power
+png(filename = paste(outputPath, outputFileName, sep = ""),
+    width = 480, height = 480, units = "px")
+hist(data$Global_active_power, col = "red", main = "Global active power",
+     xlab = "Global Active Power (kilowatts)")
+dev.off()
