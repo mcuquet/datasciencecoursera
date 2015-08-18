@@ -1,0 +1,145 @@
+---
+title: "Large Numbers and the Central Limit Theorem"
+author: "Martí Cuquet"
+output:
+  pdf_document:
+    fig_caption: yes
+---
+
+```{r, echo = FALSE}
+library(ggplot2)
+```
+
+## Abstract
+
+This report simulates the exponential distribution. We first show that, as
+expected by the Law of Large Numbers, the sample mean and variance approach the
+theoretical mean and variance, respectively. Then, we compare the normalised
+distribution to that of a standard normal distibution, and observe that it is
+indeed approximately normal, as predicted by the Central Limit Theorem.
+
+## Introduction
+
+In this project we investigate the exponential distribution in R and compare it
+with the Central Limit Theorem. The exponential distribution is the probability
+distribution that describes the time between events in a Poisson process. Its
+probability density function is
+
+$$f(x;\lambda) = \begin{cases}
+\lambda e^{-\lambda x} & x \ge 0, \\
+0 & x < 0,
+\end{cases}$$
+
+and both its mean and standard deviation are equal to $1/\lambda$.
+
+## Simulations
+
+Throughout this project we will set $\lambda = 0.2$. We will investigate the
+distribution of averages of $m = 40$ exponentials with a thousand ($n = 10^3$)
+simulations:
+
+```{r}
+n <- 10^3
+m <- 40
+lambda <- 0.2
+```
+
+Let us also set the seed for reproducibility. We perform $n$ simulations of $m$
+random variables each, and store them in a matrix whose $n$ rows are the
+simulations:
+
+```{r}
+set.seed(1)
+simulations <- matrix(rexp(m * n, lambda), nrow = n, byrow = TRUE)
+```
+
+The sample means and variances for each simulation can be easily computed:
+
+```{r}
+means <- rowMeans(simulations)
+variances <- apply(simulations, 1, var)
+```
+
+## Results
+
+The aim of this project is to investigate the exponential distribution and
+compare it with the Law of Large Numbers and the Central Limit Theorem.
+
+### Sample Mean versus Theoretical Mean
+
+We first compare the sample mean versus the theoretical mean, which is
+$\mu = 1/\lambda = `r 1/lambda`$.
+
+```{r}
+cumMeans <- cumsum(means) / (1:length(means))
+
+g1 <- ggplot(data.frame(x = 1:length(cumMeans), y = cumMeans),
+             aes(x = x, y = y))
+g1 <- g1 + geom_hline(yintercept = 1 / lambda, color = "green") + geom_line()
+g1 <- g1 + labs(title = "Sample mean versus theoretical mean",
+                x = "Number of simulations", y = "Cumulative mean")
+g1 <- g1 + theme(text = element_text(size=8))
+```
+
+As expected, the sample mean $\bar{X} = `r mean(simulations)`$ approaches the
+theoretical mean $\mu = `r 1/lambda`$ after `r n` simulations of `r m` random
+numbers each. This can be more clearly seen in Figure 1, which shows the
+cumulative mean after a certain number of simulations, which converges to the
+theoretical mean (in green).
+
+```{r figmean, echo = FALSE, fig.cap = "Cumulative mean versus number of simulations. The green, horizontal line depicts the theoretical mean. With increasing number of simulations, the sample mean approaches the theoretical mean.", fig.width = 4, fig.height = 2.5}
+print(g1)
+```
+
+### Sample Variance versus Theoretical Variance
+
+The same analysis can be done for the variance, which is
+$S^2 = 1/\lambda^2 = `r 1/lambda^2`$.
+
+```{r}
+cumVariances <- cumsum(variances) / (1:length(variances))
+
+g2 <- ggplot(data.frame(x = 1:length(cumVariances), y = cumVariances),
+            aes(x = x, y = y))
+g2 <- g2 + geom_hline(yintercept = 1 / lambda^2, color = "green") + geom_line()
+g2 <- g2 + labs(title = "Sample variance versus theoretical variance",
+                x = "Number of simulations", y = "Cumulative variance")
+g2 <- g2 + theme(text = element_text(size=8))
+```
+
+Again, the sample variance $\bar{S^2} = `r mean(variances)`$ approaches the
+theoretical variance $S^2 = `r 1/lambda^2`$ after `r n` simulations of `r m`
+random numbers each. Figure 2 shows the cumulative variance after a certain
+number of simulations, which converges to the theoretical variance (in green).
+
+```{r figvar, echo = FALSE, fig.cap = "Cumulative variance versus number of simulations. The green, horizontal line depicts the theoretical variance. With increasing number of simulations, the sample variance approaches the theoretical variance.", fig.width = 4, fig.height = 2.5}
+print(g2)
+```
+
+### Distribution
+
+Finally, we check that the normalized mean,
+$\hat{X} := \frac{\bar{X} - \mu}{\sigma/\sqrt{n}},$ has a distribution like that
+of a standard normal.
+
+```{r}
+meansNorm <- sqrt(m) * (means - 1/lambda) / (1/lambda)
+meanMeansNorm <- mean(meansNorm)
+varMeansNorm <- var(meansNorm)
+
+g3 <- ggplot(data.frame(x = meansNorm), aes(x = x))
+g3 <- g3 + geom_histogram(binwidth= .1, aes(y=..density..),
+                          colour = "black", fill = "#FF9999")
+g3 <- g3 + stat_function(fun = dnorm, colour = "black")
+g3 <- g3 + labs(title = "Distribution compared to the standard normal",
+                x = "Normalized mean", y = "Density")
+g3 <- g3 + theme(text = element_text(size=8))
+```
+
+Indeed, $\hat{X}$ has a mean of `r round(meanMeansNorm, digits = 3)` and a
+variance of `r round(varMeansNorm, digits = 3)`. Its distribution, compared to
+that of a standard normal, can be seen in Figure 3.
+
+```{r figdist, echo = FALSE, fig.cap = "Density of the normalized mean. The superimposed line corresponds to the standard normal distribution.", fig.width = 4, fig.height = 2.5}
+print(g3)
+```
