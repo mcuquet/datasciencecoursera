@@ -1,0 +1,221 @@
+---
+title: "Effect of transmission type to fuel economy"
+author: "Martí Cuquet"
+output:
+  pdf_document:
+    fig_caption: yes
+---
+
+## Executive summary
+
+In this report we use the Motor Trend Car Road Tests (`mtcars`) dataset to
+explore the relation between 10 different aspects of automobile design and
+performance with the fuel economy, with a special focus on the effect of the
+transmission type (either automatic or manual). The dataset, available from the
+`datasets` R package, was extracted from the 1974 _Motor Trend_ US magazine and
+contains 32 observations. We conclude that the transmission type has indeed an
+effect to the fuel economy, but that this effect is lower if one accounts for
+other variables such as weight or acceleration of the car.
+
+## Exploratory data analysis
+
+First, we load the `mtcars` dataset and convert some of the variables to
+factors.
+
+```{r dataset, message=FALSE}
+library(dplyr); library(ggplot2); library(GGally); library(pander); library(tidyr)
+data(mtcars); corr.matrix <- mtcars
+mtcars$cyl <- factor(mtcars$cyl)
+mtcars$vs <- factor(mtcars$vs, levels=c(0, 1), labels=c("V-engine", "straight engine"))
+mtcars$am <- factor(mtcars$am, levels=c(0, 1), labels=c("automatic", "manual"))
+mtcars$gear <- factor(mtcars$gear); mtcars$carb <- factor(mtcars$carb)
+```
+
+The first impression is that the type of transmission has a big impact in the
+expected fuel economy.
+
+```{r box_am}
+g.box.am <- ggplot(mtcars, aes(am, mpg, fill=am)) + geom_boxplot() + xlab("") +
+  ylab("Fuel economy (mpg)") + guides(fill=guide_legend(title="Type of transmission"))
+```
+
+```{r fig_box_am, echo=FALSE, fig.cap="Fuel economy depending on the transmission type in the `mtcars` dataset.", fig.width = 5, fig.height = 2.2}
+print(g.box.am)
+```
+
+We can indeed test that the two transmission types have a different effect on
+the fuel economy. Assuming roughly symmetric and mound shaped distribution, we
+perform a  $t$-test with the alternative hypothesis that the true difference in
+means is different from 0.
+
+```{r ttest}
+t <- t.test(mpg ~ am, data=mtcars)
+```
+
+The 95% confidence interval lies between
+(`r round(t$conf.int[1], 2)`, `r round(t$conf.int[2], 2)`) and the $p$-value is
+`r t$p.value`, so we can reject the null hypothesis that the transmission type
+has no effect on the fuel economy.
+
+The correlation matrix can be seen in Fig. 2 (in Appendix A).
+We can observe that the transmission type is indeed quite correlated with the
+fuel economy (0.60), but there are other variables that are even more
+correlated with it, and that are still somehow correlated with the transmission
+type (see for example the weight, with a correlation of -0.87 with the fuel
+consumption and of -0.69 with the transmission type).
+The panel in Fig. 3 (in Appendix A) shows the relation between fuel economy
+and the four variables most correlated with it.
+
+## Models
+
+In this section we explore several linear regression models. We first explore a
+model that considers only the transmission type as the single independent
+variable.
+
+```{r model_am}
+model.am <- lm(mpg ~ am, data=mtcars)
+```
+
+The model predicts that a manual transmission increases the fuel economy by
+`r round(model.am$coefficients["ammanual"], 3)` with respect to an automatic
+transmission, as could be already observed in Fig. 1. It has an adjusted $R^2$
+value of `r round(summary(model.am)$adj.r.squared, 3)`, and both the intercept
+and the transmission type are significant above 0.05 (see Table 1 in Appendix B
+for more details).
+Considering a model with all possible variables,
+
+```{r model_full}
+model.full <- lm(mpg ~ ., data=mtcars)
+```
+
+a manual transmission increases the fuel economy by only
+`r round(model.full$coefficients["ammanual"], 3)` with respect to an automatic
+transmission. In this case, however, even if the adjusted $R^2$ is
+`r round(summary(model.full)$adj.r.squared, 3)`, none of the variables has a
+significance above 0.05. We hence use the `step` function to select the optimal
+model by the [AIC](https://en.wikipedia.org/wiki/Akaike_information_criterion).
+
+```{r model_aic, message=FALSE, results="hide"}
+model.aic <- step(model.full)
+```
+
+As we can see in Table 2 (in Appendix B), now a manual transmission increases
+the fuel economy by `r round(model.aic$coefficients["ammanual"], 3)` with
+respect to an automatic transmission. The adjusted $R^2$ value is in this case
+`r round(summary(model.aic)$adj.r.squared, 3)`.
+However, in this case the transmission type is not significant. To improve the
+model, we change the `k` parameter in the `step` function to $log(n)$, where $n$
+is the number of observations, so we use the [Bayesian information
+criterion](https://en.wikipedia.org/wiki/Bayesian_information_criterion).
+```{r model_bic, echo=FALSE, message=FALSE, results="hide"}
+model.bic <- step(model.full, k = log(nrow(mtcars)))
+```
+This model provides a slightly lower adjusted $R^2$,
+`r round(summary(model.bic)$adj.r.squared, 3)`, but now all selected independent
+variables (`wt`, `qsec`, and `am`) are significant. As `wt` and `am` are rather
+correlated, we decide to include as well an interaction term to the model
+
+```{r model_bic2, message=FALSE, results="hide"}
+model.bic2 <- lm(mpg ~ wt + qsec + am + wt:am, data=mtcars)
+```
+
+The coefficients are even more significant (see Table 4, Appendix B), and the
+adjusted $R^2$ value is the highest so far:
+`r round(summary(model.bic2)$adj.r.squared, 3)`
+We hence select this last method, which also shows a nice behavior of its
+residuals (see Appendix C for more details).
+
+## Conclusions
+
+In this report, we have seen that a manual transmission is correlated with a
+higher fuel economy than automatic transmission. In particular, and considering
+the transmission type alone, manual transmission increases fuel economy by
+`r round(model.am$coefficients["ammanual"], 3)` mpg with respect to automatic
+transmission. This represents a
+`r 100 * round(model.am$coefficients["ammanual"] / model.am$coefficients["(Intercept)"], 3)`%
+increase.
+
+If we account for other confounders, then the effect of the transmission type on
+fuel economy is much lower, although still relevant. For the best model found
+without interaction terms, in which aside from the transmission type we also
+consider the quarter mile time and the weight of the car, a manual transmission
+increases the fuel economy by `r round(model.bic$coefficients["ammanual"], 3)`
+mpg while keeping the other variables constant. If we include an interaction
+term between weight and transmission type, then the effect of manual
+transmission is to increase by `r round(model.bic2$coefficients["ammanual"], 3)`
+mpg the fuel economy but correct it with
+`r round(model.bic2$coefficients["wt:ammanual"], 3)` mpg for every 1000 lbs.
+
+## Appendix
+
+### A. Correlation matrix and relationship of variables with `mpg`
+
+The following Figure depicts the correlation matrix of all the terms in the
+`mtcars` dataset. The most correlated variable with `mpg` is `wt`.
+
+```{r corr_matrix, echo=FALSE, fig.cap="Correlation matrix of the mtcars dataset.", fig.height=3, fig.width=6}
+corr.matrix <- data.frame(
+  x=factor(names(corr.matrix), levels=names(corr.matrix)), cor(corr.matrix)) %>%
+  gather(y, Correlation, -x)
+corr.matrix$y <- factor(corr.matrix$y, levels=rev(levels(corr.matrix$y)))
+
+ggplot(corr.matrix, aes(x=x, y=y)) + 
+  geom_tile(aes(fill=Correlation), color="white") +
+  geom_text(aes(label=sprintf("%+.2f", round(Correlation, 2))), size=2.5, vjust=1) +
+  scale_fill_gradient2(limits=c(-1, 1),
+                       low="steelblue", mid="white", high="steelblue") +
+  xlab("") + ylab("") +
+  theme_minimal()
+```
+
+As mentioned in the main text, the following panel shows the relation between
+fuel economy and the four variables most correlated with it.
+
+```{r panel, echo=FALSE, fig.cap="Relationship among several highly correlated variables.", fig.height=3.85, fig.width=6}
+ggpairs(mtcars,
+        which(names(mtcars) %in% c("mpg", "wt", "cyl", "disp", "hp")),
+        colour="am",
+        upper=list(continuous="smooth", combo="box"),
+        lower=list(continuous="smooth", combo="box"))
+```
+
+### B. Coefficient tables
+
+The following tables summarise the coefficients of the different models
+mentioned in the main text.
+
+```{r tab_model_am, echo=FALSE, results="asis"}
+pandoc.table(coefficients(summary(model.am)),
+             caption="Summary of the coefficients of `model.am`.")
+```
+
+```{r tab_model_aic, echo=FALSE, results="asis"}
+pandoc.table(coefficients(summary(model.aic)),
+             caption="Summary of the coefficients of `model.aic`.")
+```
+
+```{r tab_model_bic, echo=FALSE, results="asis"}
+pandoc.table(coefficients(summary(model.bic)),
+             caption="Summary of the coefficients of `model.bic`.")
+```
+
+```{r tab_model_bic2, echo=FALSE, results="asis"}
+pandoc.table(coefficients(summary(model.bic2)),
+             caption="Summary of the coefficients of `model.bic2`.")
+```
+
+### C. `model.bic2` residuals
+
+The following panel depicts the residuals of the `model.bic2` (see main text for
+details).
+
+```{r residuals, echo=FALSE, fig.cap="Residuals of `model.bic2`.", fig.height=7, fig.width=7}
+par(mfrow=c(2, 2))
+plot(model.bic2)
+```
+
+The first plot seems to indicate that the residuals and the fitted values are
+uncorrelated. The flat distribution of the Scale-Location plot also indicate an
+homogeneous distribution of the variance of the residuals. The Q-Q plot suggest
+as somewhat right skewed distribution of the residuals. The final plot indicates
+that all observations are within a reasonable Cook distance.
